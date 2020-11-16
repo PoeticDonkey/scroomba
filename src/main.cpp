@@ -1,5 +1,5 @@
 /** @file main.cpp
- *    This file contains the code to run the Scoomba. It probably will work.
+ *    This file contains the code to run the Scoomba.
  *
  *  @author  JR Ridgely
  *  @author  Scott Mangin
@@ -75,7 +75,7 @@ void task_thermal (void* p_params)
     
     Serial.println(F("AMG88xx pixels"));
 
-    bool status;
+    bool status = 0;
     
     // default settings
     status = amg.begin();
