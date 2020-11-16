@@ -1,6 +1,5 @@
 /** @file main.cpp
- *    This file contains a crude program for inclination of an IMU. If given more time and further
- *    resources, this file would need to be reworked.
+ *    This file contains the code to run the Scoomba. It probably will work.
  *
  *  @author  JR Ridgely
  *  @author  Scott Mangin
