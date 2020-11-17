@@ -284,10 +284,16 @@ void task_mastermind (void* p_params)
 void task_limit (void* p_params)
 {
     (void)p_params;            // Does nothing but shut up a compiler warning  
-
+    
     for (;;)
     {
-        
+        digitalRead(pin); //Read the pins connected to the limit switches
+        while (pin = 0)
+        {
+            //do nothing until pin reads high
+        }
+            //once pin is read as high turn off the motor
+        analogwrite(enA, 0);
         vTaskDelay(1000); // Delays things so we can actually see stuff happening
     }
 }
