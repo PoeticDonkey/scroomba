@@ -24,9 +24,10 @@
 Queue<float> thermaldata (640, "Thermal Data"); //Thermal Camera Data Queue
 Queue<float> motorparams (3, "Motor Task Parameters"); //Thermal Camera Data Queue
 
-/** @brief   Task which interacts with a user. 
- *  @details This task demonstrates how to use a FreeRTOS task for interacting
- *           with some user while other more important things are going on.
+/** @brief   Task which runs the ToF sensor. 
+ *  @details This task initializes and runs the Time of Flight sensor.
+ *           Current bugs: reports ~50 mm when something isn't in the range.
+ *                         inconsistent measuremeent past 200mm.
  *  @param   p_params A pointer to function parameters which we don't use.
  */
 void task_tof (void* p_params)
@@ -65,6 +66,14 @@ void task_tof (void* p_params)
     }
 }
 
+/** @brief   Task which runs the Thermal Camera. 
+ *  @details This task initializes and collects data from the Thermal Camera into a [64] array.
+ *           Every 8 values moves from top to bottom in the FoV.
+ *           Every group of 8 values moves from left to right in the FoV. *           
+ *  @param   p_params A pointer to function parameters which we don't use.
+ *  @param   amg The thermal camera object.
+ *  @param   pixels The array that stores the thermal camera data.
+ */
 
 void task_thermal (void* p_params)
 {
@@ -117,28 +126,59 @@ void task_thermal (void* p_params)
 
 }
 
-/** @brief   Task which interacts with a user. 
- *  @details This task demonstrates how to use a FreeRTOS task for interacting
- *           with some user while other more important things are going on.
+/** @brief   Task which interperates the thermal camera data. 
+ *  @details This task takes the thermal camera data and makes sense of it.
+ *           It calibrates and then judges from that calibration if a person is there.
+ *           Warning: Messing up calibration gives bad results!
  *  @param   p_params A pointer to function parameters which we don't use.
  */
+
 void task_thermaldecoder (void* p_params)
 {
     (void)p_params;            // Does nothing but shut up a compiler warning
 
-    float pixels[64];     
+    float pixels[AMG88xx_PIXEL_ARRAY_SIZE];
+    float ambient[AMG88xx_PIXEL_ARRAY_SIZE];          
+    bool calib = false; // program starts in need of calibration
+    uint8_t count = 0;   
 
     for (;;)
     {
         if(thermaldata.any())
         {
-            for(uint8_t i = 1; i<=64; i++)
+            for(uint8_t i = 1; i<=AMG88xx_PIXEL_ARRAY_SIZE; i++)
             {
                 thermaldata.get(pixels[i-1]);
+                if (!calib)          // get the data for calibration
+                {
+                    if (count == 0) // is there a better way to handle the first time?
+                    {
+                        ambient[i-1] = pixels[i-1];
+                    }
+                    else
+                    {
+                        ambient[i-1] = pixels[i-1] + ambient[i-1];
+                    }
+                    
+                }
+            }
+            
+            if(!calib) // rest of calibration
+            {
+                count++; // keep track of times calibration data is taken
+                if (count >= 10) // set the number of times calibration data should be averaged over
+                {
+                    for(uint8_t i = 1; i<=AMG88xx_PIXEL_ARRAY_SIZE; i++)
+                    {
+                        ambient[i-1] = ambient[i-1]/count;
+                    }
+                    calib = true; // stops calibration mode
+                }
             }
 
+            // code to print the array for us to see
             Serial.print("[");
-            for(int i=1; i<=AMG88xx_PIXEL_ARRAY_SIZE; i++)
+            for(int i=1; i<=AMG88xx_PIXEL_ARRAY_SIZE; i++) // why does this work when that size shouldn't be defined?
             {
                 Serial.print(pixels[i-1]);
                 Serial.print(", ");
@@ -148,14 +188,14 @@ void task_thermaldecoder (void* p_params)
             Serial.println();
         }
         
+        
         // vTaskDelay(1000); // Delays things so we can actually see stuff happening
 
     }
 }
 
-/** @brief   Task which interacts with a user. 
- *  @details This task demonstrates how to use a FreeRTOS task for interacting
- *           with some user while other more important things are going on.
+/** @brief   Task which is the mastermind of the program. 
+ *  @details This task is the brain of the Scroomba that decides what should happen.
  *  @param   p_params A pointer to function parameters which we don't use.
  */
 void task_mastermind (void* p_params)
