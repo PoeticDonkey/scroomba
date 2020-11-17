@@ -138,9 +138,13 @@ void task_thermaldecoder (void* p_params)
     (void)p_params;            // Does nothing but shut up a compiler warning
 
     float pixels[AMG88xx_PIXEL_ARRAY_SIZE];
-    float ambient[AMG88xx_PIXEL_ARRAY_SIZE];          
+    float ambient[AMG88xx_PIXEL_ARRAY_SIZE];
+    float diff[AMG88xx_PIXEL_ARRAY_SIZE];   // the diff          
     bool calib = false; // program starts in need of calibration
-    uint8_t count = 0;   
+    uint8_t count = 0;
+    uint8_t left = 0;
+    uint8_t middle = 0;
+    uint8_t right = 0;   
 
     for (;;)
     {
@@ -159,12 +163,71 @@ void task_thermaldecoder (void* p_params)
                     {
                         ambient[i-1] = pixels[i-1] + ambient[i-1];
                     }
-                    
+                }
+                else
+                {
+                    diff[i-1] = pixels[i-1] - ambient[i-1];
+                    if (diff[i-1]>=2)
+                    {
+                        if (i-1<16) // was 24
+                        {
+                            right++;
+                        }
+                        else if (i-1>=48) // was 40
+                        {
+                            left++;
+                        }
+                        else
+                        {
+                            middle++;
+                        }
+                    }
+                }                
+            }
+
+            // temp code
+
+            if (calib)
+            {              
+                Serial.println("Temperature Differential");
+                Serial.print("[");
+                for(int i=1; i<=AMG88xx_PIXEL_ARRAY_SIZE; i++)
+                {
+                    Serial.print(diff[i-1]);
+                    Serial.print(", ");
+                    if( i%8 == 0 ) Serial.println();
+                }
+                Serial.println("]");
+                Serial.println();
+
+                if (right || left || middle)
+                {
+                    if (right>left && right>middle)
+                    {
+                        Serial.println("GO RIGHT!");
+                    }
+                    else if (left>right && left>middle)
+                    {
+                        Serial.println("GO LEFT!");
+                    }
+                    else
+                    {
+                        Serial.println("middle?");
+                    }
+                    right=0;
+                    left=0;
+                    middle=0;
+                }
+                else
+                {
+                    Serial.println("Waiting");
                 }
             }
             
             if(!calib) // rest of calibration
             {
+                Serial.println("calibrating"); // temp code while we're testing
+
                 count++; // keep track of times calibration data is taken
                 if (count >= 10) // set the number of times calibration data should be averaged over
                 {
@@ -176,6 +239,8 @@ void task_thermaldecoder (void* p_params)
                 }
             }
 
+            /* // commented out so we see just the ambient data for now.
+            
             // code to print the array for us to see
             Serial.print("[");
             for(int i=1; i<=AMG88xx_PIXEL_ARRAY_SIZE; i++) // why does this work when that size shouldn't be defined?
@@ -186,6 +251,9 @@ void task_thermaldecoder (void* p_params)
             }
             Serial.println("]");
             Serial.println();
+            */
+
+           
         }
         
         
