@@ -23,6 +23,7 @@
 
 Queue<float> thermaldata (640, "Thermal Data"); //Thermal Camera Data Queue
 Queue<float> motorparams (3, "Motor Task Parameters"); //Thermal Camera Data Queue
+Queue<float> limitdetect (1, "Limit Switch Detection Flag"); // Limit Switch Flag
 
 /** @brief   Task which runs the ToF sensor. 
  *  @details This task initializes and runs the Time of Flight sensor.
