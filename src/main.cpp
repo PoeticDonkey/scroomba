@@ -197,20 +197,20 @@ void task_thermaldecoder (void* p_params)
             // code to check if it's working right
 
             if (calib)      // figure out when we should leave the calib state
-            {              
-                Serial.println("Temperature Differential");
-                Serial.print("[");
-                for(int i=1; i<=AMG88xx_PIXEL_ARRAY_SIZE; i++)
-                {
-                    Serial.print(diff[i-1]);
-                    Serial.print(", ");
-                    if( i%8 == 0 ) Serial.println();
-                }
-                Serial.println("]");
-                Serial.println();
-            
+            {             
                 if (detect)   // figure out when we get out of the detected state
                 {
+                    Serial.println("Temperatures");
+                    Serial.print("[");
+                    for(int i=1; i<=AMG88xx_PIXEL_ARRAY_SIZE; i++)
+                    {
+                        Serial.print(pixels[i-1]);
+                        Serial.print(", ");
+                        if( i%8 == 0 ) Serial.println();
+                    }
+                    Serial.println("]");
+                    Serial.println();                    
+                    
                     if (high_i<16) // was 24
                     {
                         tbd = RIGHT;
@@ -232,6 +232,16 @@ void task_thermaldecoder (void* p_params)
                 else
                 {
                     Serial.println("Waiting");
+                    Serial.println("Temperature Differential");
+                    Serial.print("[");
+                    for(int i=1; i<=AMG88xx_PIXEL_ARRAY_SIZE; i++)
+                    {
+                        Serial.print(diff[i-1]);
+                        Serial.print(", ");
+                        if( i%8 == 0 ) Serial.println();
+                    }
+                    Serial.println("]");
+                    Serial.println();
                 }
             }
             
