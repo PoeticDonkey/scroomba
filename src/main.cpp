@@ -295,17 +295,29 @@ void task_mastermind (void* p_params)
 void task_limit (void* p_params)
 {
     (void)p_params;            // Does nothing but shut up a compiler warning  
+    
+    const uint8_t pin = 11; //FIND REAL PINS
+    const uint8_t pin2 = 11; //FIND REAL PINS
+
+    float status = 0;
 
     for (;;)
     {
-        const uint8_t pin = 11; //FIND REAL PINS
-        bool limit = 0;   //Create a boolean to saet high when limit switch detects a boundary
-        digitalRead(pin); //Read the pins connected to the limit switches
-        if (pin == 1)      //If the pin is high, then limit switch detected a boundary
+        //checks if limit switches are pressed
+        if (digitalRead(pin) || digitalRead(pin2))      //If the pin is high, then limit switch detected a boundary
         {
-            limit = 1;
+            limitdetect.put(1);
+            status = 1;
+
+            while(status)
+            {
+                limitdetect.peek(status);
+                vTaskDelay(100)
+            }
+
         }
-        vTaskDelay(1000); // Delays things so we can actually see stuff happening
+
+        vTaskDelay(50); // Delays things so we can actually see stuff happening
     }
 }
 
