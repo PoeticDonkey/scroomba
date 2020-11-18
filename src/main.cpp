@@ -142,9 +142,16 @@ void task_thermaldecoder (void* p_params)
     float diff[AMG88xx_PIXEL_ARRAY_SIZE];   // the diff          
     bool calib = false; // program starts in need of calibration
     uint8_t count = 0;
-    uint8_t left = 0;
-    uint8_t middle = 0;
-    uint8_t right = 0;   
+
+    const uint8_t LEFT = 3;     // match the motor driver
+    const uint8_t MIDDLE = 1;   // match the motor driver
+    const uint8_t RIGHT = 4;    // match the motor driver
+
+    uint8_t high_v = 0;         // highest value when checking the array
+    uint8_t high_i = 0;         // index of highest value in 0 to 63 form
+
+
+    uint8_t tbd = 0;            // replace with a share later   
 
     for (;;)
     {
@@ -167,19 +174,12 @@ void task_thermaldecoder (void* p_params)
                 else
                 {
                     diff[i-1] = pixels[i-1] - ambient[i-1];
-                    if (diff[i-1]>=2)
+                    if (diff[i-1]>=2) // checking if differential is greater than threshold
                     {
-                        if (i-1<16) // was 24
+                        if (diff[i-1]>high_v) // checking if differential is greater than highest val
                         {
-                            right++;
-                        }
-                        else if (i-1>=48) // was 40
-                        {
-                            left++;
-                        }
-                        else
-                        {
-                            middle++;
+                            high_v = diff[i-1];
+                            high_i = i-1;
                         }
                     }
                 }                
@@ -199,24 +199,26 @@ void task_thermaldecoder (void* p_params)
                 }
                 Serial.println("]");
                 Serial.println();
-
-                if (right || left || middle)
+            
+                if (high_v)
                 {
-                    if (right>left && right>middle)
+                    if (high_i<16) // was 24
                     {
+                        tbd = RIGHT;
                         Serial.println("GO RIGHT!");
                     }
-                    else if (left>right && left>middle)
+                    else if (high_i>=48) // was 40
                     {
+                        tbd = LEFT;
                         Serial.println("GO LEFT!");
                     }
                     else
                     {
+                        tbd = MIDDLE;
                         Serial.println("middle?");
                     }
-                    right=0;
-                    left=0;
-                    middle=0;
+                    high_v = 0;
+                    high_i = 0;                    
                 }
                 else
                 {
@@ -358,7 +360,7 @@ void task_motor (void* p_params)
                 pinMode(in2, HIGH);
 
                 pinMode(in3, LOW);
-                pinMode(in4, HIGH;
+                pinMode(in4, HIGH);
             }
 
             //Set PWM signal
