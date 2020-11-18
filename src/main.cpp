@@ -284,15 +284,15 @@ void task_mastermind (void* p_params)
 void task_limit (void* p_params)
 {
     (void)p_params;            // Does nothing but shut up a compiler warning  
-    
+
     for (;;)
     {
+        const uint8_t pin = 11; //FIND REAL PINS
         bool limit = 0;   //Create a boolean to saet high when limit switch detects a boundary
         digitalRead(pin); //Read the pins connected to the limit switches
-        if (pin = 1)      //If the pin is high, then limit switch detected a boundary
+        if (pin == 1)      //If the pin is high, then limit switch detected a boundary
         {
             limit = 1;
-            analogwrite(enA, 0);  //once pin is read as high turn off the motor
         }
         vTaskDelay(1000); // Delays things so we can actually see stuff happening
     }
@@ -330,19 +330,35 @@ void task_motor (void* p_params)
             //Set Direction
             if(motordata[0] == 1) //Forwards Direction
             {
-                //Set in pins one way
+                pinMode(in1, HIGH);
+                pinMode(in2, LOW);
+
+                pinMode(in3, LOW);
+                pinMode(in4, HIGH);
             }
             else if(motordata[0] == 2) //Reverse Direction
             {
-                //Set pins other way
+                pinMode(in1, LOW);
+                pinMode(in2, HIGH);
+
+                pinMode(in3, HIGH);
+                pinMode(in4, LOW);
             }
             else if(motordata[0] == 3) //Left Turn
             {
-                //Set both in pins one way
+                pinMode(in1, HIGH);
+                pinMode(in2, LOW);
+
+                pinMode(in3, HIGH);
+                pinMode(in4, LOW);
             }
             else if(motordata[0] == 4) //Right Turn
             {
-                //Set both in pins other way
+                pinMode(in1, LOW);
+                pinMode(in2, HIGH);
+
+                pinMode(in3, LOW);
+                pinMode(in4, HIGH;
             }
 
             //Set PWM signal
