@@ -62,7 +62,7 @@ void task_tof (void* p_params)
             Serial.println(" out of range ");
         }
     
-        vTaskDelay(10000); // Delays things so we can actually see stuff happening
+        vTaskDelay(1000); // Delays things so we can actually see stuff happening
 
     }
 }
@@ -323,7 +323,7 @@ void task_limit (void* p_params)
             while(status)
             {
                 limitdetect.peek(status);
-                vTaskDelay(100)
+                vTaskDelay(100);
             }
 
         }
@@ -416,7 +416,7 @@ void setup ()
                  "User Int.",                     // Name for printouts
                  1536,                            // Stack size
                  NULL,                            // Parameters for task fn.
-                 1,                               // Priority
+                 4,                               // Priority
                  NULL);                           // Task handle
 
     // Create a task which prints a more agreeable message
