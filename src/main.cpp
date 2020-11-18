@@ -139,8 +139,11 @@ void task_thermaldecoder (void* p_params)
 
     float pixels[AMG88xx_PIXEL_ARRAY_SIZE];
     float ambient[AMG88xx_PIXEL_ARRAY_SIZE];
-    float diff[AMG88xx_PIXEL_ARRAY_SIZE];   // the diff          
+    float diff[AMG88xx_PIXEL_ARRAY_SIZE];   // the diff         
+
     bool calib = false; // program starts in need of calibration
+    bool detect = false; // program starts without having seen something
+
     uint8_t count = 0;
 
     const uint8_t LEFT = 3;     // match the motor driver
@@ -171,23 +174,29 @@ void task_thermaldecoder (void* p_params)
                         ambient[i-1] = pixels[i-1] + ambient[i-1];
                     }
                 }
-                else
+                else if (!detect) // looking for person
                 {
                     diff[i-1] = pixels[i-1] - ambient[i-1];
-                    if (diff[i-1]>=2) // checking if differential is greater than threshold
+                    if (diff[i-1]>=2) // checking if differential is greater than threshold for person
                     {
-                        if (diff[i-1]>high_v) // checking if differential is greater than highest val
+                        detect = true; // switch to detected mode
+                        high_v = pixels[i-1]; // highest value is now from here
+                        high_i = i-1;           // remember highest value index                    
+                    }
+                }
+                else
+                {
+                    if (pixels[i-1]>high_v) // checking if differential is greater than highest val
                         {
-                            high_v = diff[i-1];
+                            high_v = pixels[i-1];
                             high_i = i-1;
                         }
-                    }
-                }                
+                }
             }
 
-            // temp code
+            // code to check if it's working right
 
-            if (calib)
+            if (calib)      // figure out when we should leave the calib state
             {              
                 Serial.println("Temperature Differential");
                 Serial.print("[");
@@ -200,7 +209,7 @@ void task_thermaldecoder (void* p_params)
                 Serial.println("]");
                 Serial.println();
             
-                if (high_v)
+                if (detect)   // figure out when we get out of the detected state
                 {
                     if (high_i<16) // was 24
                     {
