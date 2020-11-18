@@ -287,13 +287,13 @@ void task_limit (void* p_params)
     
     for (;;)
     {
+        bool limit = 0;   //Create a boolean to saet high when limit switch detects a boundary
         digitalRead(pin); //Read the pins connected to the limit switches
-        while (pin = 0)
+        if (pin = 1)      //If the pin is high, then limit switch detected a boundary
         {
-            //do nothing until pin reads high
+            limit = 1;
+            analogwrite(enA, 0);  //once pin is read as high turn off the motor
         }
-            //once pin is read as high turn off the motor
-        analogwrite(enA, 0);
         vTaskDelay(1000); // Delays things so we can actually see stuff happening
     }
 }
