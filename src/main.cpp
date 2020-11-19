@@ -22,9 +22,11 @@
 #include "taskshare.h"
 
 Queue<float> thermaldata (640, "Thermal Data"); //Thermal Camera Data Queue
-Queue<float> motorparams (3, "Motor Task Parameters"); //Thermal Camera Data Queue
-Queue<float> limitdetect (1, "Limit Switch Detection Flag"); // Limit Switch Flag
-Queue<float> reset_this (1, "Reset Hunt Flag"); // Flag to reset thermal cam
+Queue<uint8_t> motorparams (30, "Motor Task Parameters"); // What motors should do queue
+Queue<uint8_t> limitdetect (10, "Limit Switch Detection Flag"); // Limit Switch Flag
+Queue<uint8_t> reset_this (10, "Reset Hunt Flag"); // Flag to reset thermal cam
+Queue<uint8_t> direction (10, "Person Direction Flag"); // Direction of detected person
+Queue<uint8_t> too_close (10, "ToF Crash Prevention Flag"); // Stop before running into something
 
 /** @brief   Task which runs the ToF sensor. 
  *  @details This task initializes and runs the Time of Flight sensor.
@@ -56,14 +58,22 @@ void task_tof (void* p_params)
 
         if (measure.RangeStatus != 4)   // phase failures have incorrect data
         {
-            Serial.print("Distance (mm): "); Serial.println(measure.RangeMilliMeter);
+            if(measure.RangeMilliMeter<=60)
+            {
+                too_close.put(2);
+                Serial.print("Distance (mm): ");
+                Serial.print(measure.RangeMilliMeter); Serial.println(" too close!");
+            }
+            else
+            {
+                Serial.print("Distance (mm): "); Serial.println(measure.RangeMilliMeter);
+            }            
         } 
         else 
         {
-            Serial.println(" out of range ");
+            //Serial.println(" out of range ");
         }
-    
-        vTaskDelay(1000); // Delays things so we can actually see stuff happening
+        vTaskDelay(3000); // Delays things so we can actually see stuff happening
 
     }
 }
@@ -155,23 +165,26 @@ void task_thermaldecoder (void* p_params)
     uint8_t high_v = 0;         // highest value when checking the array
     uint8_t high_i = 0;         // index of highest value in 0 to 63 form
 
-
-    float tbd = 0;            // replace with thing to share direction later
-    float reset = 0;          // used to reset   
+    // uint8_t tbd = 0;            // replace with thing to share direction later
+    uint8_t reset = 0;          // used to trash reset flag 
 
     for (;;)
     {
-        reset_this.get(reset); // see if Mastermind called for reset
-        if(reset) // reset actions
+        
+        if(reset_this.any()) // reset actions
         {
             calib = false;
             detect = false;
             count = 0;
             high_v = 0;
             high_i = 0;
-            reset = 0; // clear reset flag
+            reset_this.get(reset); // clear reset flag
+            Serial.println("reset!");
         }
-        reset_this.put(reset); // put it back in the queue
+        else
+        {
+            reset = 0; // was worried about two if statements next to each other
+        }
         
         if(thermaldata.any())
         {
@@ -192,7 +205,7 @@ void task_thermaldecoder (void* p_params)
                 else if (!detect) // looking for person
                 {
                     diff[i-1] = pixels[i-1] - ambient[i-1];
-                    if (diff[i-1]>=2) // checking if differential is greater than threshold for person
+                    if (diff[i-1]>=3) // checking if differential is greater than threshold for person
                     {
                         detect = true; // switch to detected mode
                         high_v = pixels[i-1]; // highest value is now from here
@@ -228,18 +241,21 @@ void task_thermaldecoder (void* p_params)
                     
                     if (high_i<16) // was 24
                     {
-                        tbd = RIGHT;
+                        direction.put(RIGHT);
+                        //tbd = RIGHT;
                         Serial.println("GO RIGHT!");
                     }
                     else if (high_i>=48) // was 40
                     {
-                        tbd = LEFT;
+                        direction.put(LEFT);
+                        //tbd = LEFT;
                         Serial.println("GO LEFT!");
                     }
                     else
                     {
-                        tbd = MIDDLE;
-                        Serial.println("middle?");
+                        direction.put(MIDDLE);
+                        //tbd = MIDDLE;
+                        Serial.println("Middle");
                     }
                     high_v = 0;
                     high_i = 0;                    
@@ -288,13 +304,7 @@ void task_thermaldecoder (void* p_params)
             Serial.println("]");
             Serial.println();
             */
-
-           
-        }
-        
-        
-        // vTaskDelay(1000); // Delays things so we can actually see stuff happening
-
+        }        
     }
 }
 
@@ -306,30 +316,71 @@ void task_mastermind (void* p_params)
 {
     (void)p_params;            // Does nothing but shut up a compiler warning  
 
+    uint8_t dir = 0;           // direction defaults to stopped
+
     for (;;)
-    {
-        // initialize, calibrating 
-        
-        // waiting for person
-        
-        // turn to track a person
-
-        // charge!
-
-        // something close, stop
-
-        // collision => STOP!
-
-        // Stopped => reset thermal cam
-
-        /*
-        if (stopped)
-        {
-            reset_this.put(1); // something like this to reset the thermal cam
-        }
-
+    {   
+        /* 
+        direction determind from sensors
+        checks in order of importance
         */
         
+        /*
+        if(limitdetect.any()) // triggers if limit switch hit something
+        {         
+            
+            //Experimental method to unpress limit switches
+            //and then transition to stopped state.
+            //Only would work when limit switches are on back.
+                        
+            motorparams.put(1);
+            motorparams.put(200);
+            motorparams.put(200);
+            Serial.println("inch forward");
+            vTaskDelay(200);
+            limitdetect.get(dir);
+            reset_this.put(1); // reset system when back limit switch hit
+        }
+        */
+        if (too_close.any()) // triggers if ToF sees something too close
+        {
+            too_close.get(dir);
+        }
+        else if (direction.any()) // triggers if thermal cam finds a person
+        {
+            direction.get(dir);
+        }
+        
+        if (dir == 0) // stopped state
+        {        
+            motorparams.put(1); // doesn't really matter if 1/2/3/4 but needs to be one of them
+            motorparams.put(0);
+            motorparams.put(0);
+        }
+        else if (dir == 1) // forwards state
+        {
+            motorparams.put(1);
+            motorparams.put(200);
+            motorparams.put(200);
+        }
+        else if (dir == 2) // backwards state
+        {
+            motorparams.put(2);
+            motorparams.put(100);
+            motorparams.put(100);
+        }
+        else if (dir == 3) // left turn state
+        {
+            motorparams.put(3);
+            motorparams.put(100);
+            motorparams.put(100);
+        }
+        else if (dir == 4) // right turn state
+        {
+            motorparams.put(4);
+            motorparams.put(100);
+            motorparams.put(100);  
+        }         
         vTaskDelay(1000); // Delays things so we can actually see stuff happening
     }
 }
@@ -346,13 +397,19 @@ void task_limit (void* p_params)
     const uint8_t pin = 11; //FIND REAL PINS
     const uint8_t pin2 = 11; //FIND REAL PINS
 
-    float status = 0;
+//    float status = 0; // I decided I don't like this method -- Michael
 
     for (;;)
     {
         //checks if limit switches are pressed
         if (digitalRead(pin) || digitalRead(pin2))      //If the pin is high, then limit switch detected a boundary
         {
+            limitdetect.put(0); // put dir stop value in queue
+            while(limitdetect.any())
+            {
+                vTaskDelay(100); // do nothing until mastermind
+            }
+            /*
             limitdetect.put(1);
             status = 1;
 
@@ -361,9 +418,8 @@ void task_limit (void* p_params)
                 limitdetect.peek(status);
                 vTaskDelay(100);
             }
-
+            */
         }
-
         vTaskDelay(50); // Delays things so we can actually see stuff happening
     }
 }
@@ -385,7 +441,7 @@ void task_motor (void* p_params)
     const uint8_t in3 = 11;
     const uint8_t in4 = 11;
 
-    float motordata [3];
+    uint8_t motordata [3];
 
     for (;;)
     {
@@ -400,6 +456,7 @@ void task_motor (void* p_params)
             //Set Direction
             if(motordata[0] == 1) //Forwards Direction
             {
+                Serial.println("forward");
                 pinMode(in1, HIGH);
                 pinMode(in2, LOW);
 
@@ -408,6 +465,7 @@ void task_motor (void* p_params)
             }
             else if(motordata[0] == 2) //Reverse Direction
             {
+                Serial.println("backward");
                 pinMode(in1, LOW);
                 pinMode(in2, HIGH);
 
@@ -416,6 +474,7 @@ void task_motor (void* p_params)
             }
             else if(motordata[0] == 3) //Left Turn
             {
+                Serial.println("left");
                 pinMode(in1, HIGH);
                 pinMode(in2, LOW);
 
@@ -424,6 +483,7 @@ void task_motor (void* p_params)
             }
             else if(motordata[0] == 4) //Right Turn
             {
+                Serial.println("right");
                 pinMode(in1, LOW);
                 pinMode(in2, HIGH);
 
@@ -434,7 +494,6 @@ void task_motor (void* p_params)
             //Set PWM signal
             analogWrite(enA, motordata[1]);
             analogWrite(enB, motordata[2]);
-
         }
     }
 }
