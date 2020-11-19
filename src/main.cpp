@@ -24,6 +24,7 @@
 Queue<float> thermaldata (640, "Thermal Data"); //Thermal Camera Data Queue
 Queue<float> motorparams (3, "Motor Task Parameters"); //Thermal Camera Data Queue
 Queue<float> limitdetect (1, "Limit Switch Detection Flag"); // Limit Switch Flag
+Queue<float> reset_this (1, "Reset Hunt Flag"); // Flag to reset thermal cam
 
 /** @brief   Task which runs the ToF sensor. 
  *  @details This task initializes and runs the Time of Flight sensor.
@@ -140,7 +141,7 @@ void task_thermaldecoder (void* p_params)
 
     float pixels[AMG88xx_PIXEL_ARRAY_SIZE];
     float ambient[AMG88xx_PIXEL_ARRAY_SIZE];
-    float diff[AMG88xx_PIXEL_ARRAY_SIZE];   // the diff         
+    float diff[AMG88xx_PIXEL_ARRAY_SIZE];   // the diff between ambient and pixels         
 
     bool calib = false; // program starts in need of calibration
     bool detect = false; // program starts without having seen something
@@ -155,10 +156,23 @@ void task_thermaldecoder (void* p_params)
     uint8_t high_i = 0;         // index of highest value in 0 to 63 form
 
 
-    uint8_t tbd = 0;            // replace with a share later   
+    float tbd = 0;            // replace with thing to share direction later
+    float reset = 0;          // used to reset   
 
     for (;;)
     {
+        reset_this.get(reset); // see if Mastermind called for reset
+        if(reset) // reset actions
+        {
+            calib = false;
+            detect = false;
+            count = 0;
+            high_v = 0;
+            high_i = 0;
+            reset = 0; // clear reset flag
+        }
+        reset_this.put(reset); // put it back in the queue
+        
         if(thermaldata.any())
         {
             for(uint8_t i = 1; i<=AMG88xx_PIXEL_ARRAY_SIZE; i++)
@@ -294,6 +308,28 @@ void task_mastermind (void* p_params)
 
     for (;;)
     {
+        // initialize, calibrating 
+        
+        // waiting for person
+        
+        // turn to track a person
+
+        // charge!
+
+        // something close, stop
+
+        // collision => STOP!
+
+        // Stopped => reset thermal cam
+
+        /*
+        if (stopped)
+        {
+            reset_this.put(1); // something like this to reset the thermal cam
+        }
+
+        */
+        
         vTaskDelay(1000); // Delays things so we can actually see stuff happening
     }
 }
