@@ -22,7 +22,8 @@
 #include "taskshare.h"
 
 Queue<float> thermaldata (640, "Thermal Data"); //Thermal Camera Data Queue
-Queue<uint8_t> motorparams (30, "Motor Task Parameters"); // What motors should do queue
+Queue<uint8_t> motordirection (1, "Motor Task Parameters"); // What motors should do queue
+Queue<uint8_t> motorpower (1, "Motor Task Parameters"); // What motors should do queue
 Queue<uint8_t> limitdetect (10, "Limit Switch Detection Flag"); // Limit Switch Flag
 Queue<uint8_t> reset_this (10, "Reset Hunt Flag"); // Flag to reset thermal cam
 Queue<uint8_t> direction (10, "Person Direction Flag"); // Direction of detected person
@@ -58,7 +59,7 @@ void task_tof (void* p_params)
 
         if (measure.RangeStatus != 4)   // phase failures have incorrect data
         {
-            if(measure.RangeMilliMeter<=60)
+            if(measure.RangeMilliMeter<=50)
             {
                 too_close.put(2);
                 Serial.print("Distance (mm): ");
@@ -73,7 +74,7 @@ void task_tof (void* p_params)
         {
             //Serial.println(" out of range ");
         }
-        vTaskDelay(3000); // Delays things so we can actually see stuff happening
+        vTaskDelay(1000); // Delays things so we can actually see stuff happening
 
     }
 }
@@ -228,6 +229,7 @@ void task_thermaldecoder (void* p_params)
             {             
                 if (detect)   // figure out when we get out of the detected state
                 {
+                    /*
                     Serial.println("Temperatures");
                     Serial.print("[");
                     for(int i=1; i<=AMG88xx_PIXEL_ARRAY_SIZE; i++)
@@ -237,7 +239,8 @@ void task_thermaldecoder (void* p_params)
                         if( i%8 == 0 ) Serial.println();
                     }
                     Serial.println("]");
-                    Serial.println();                    
+                    Serial.println();     
+                    */               
                     
                     if (high_i<16) // was 24
                     {
@@ -263,6 +266,7 @@ void task_thermaldecoder (void* p_params)
                 else
                 {
                     Serial.println("Waiting");
+                    /*
                     Serial.println("Temperature Differential");
                     Serial.print("[");
                     for(int i=1; i<=AMG88xx_PIXEL_ARRAY_SIZE; i++)
@@ -273,6 +277,7 @@ void task_thermaldecoder (void* p_params)
                     }
                     Serial.println("]");
                     Serial.println();
+                    */
                 }
             }
             
@@ -350,37 +355,33 @@ void task_mastermind (void* p_params)
         {
             direction.get(dir);
         }
-        
+
         if (dir == 0) // stopped state
         {        
-            motorparams.put(1); // doesn't really matter if 1/2/3/4 but needs to be one of them
-            motorparams.put(0);
-            motorparams.put(0);
+            motordirection.put(1); // doesn't really matter if 1/2/3/4 but needs to be one of them
+            motorpower.put(0);
         }
         else if (dir == 1) // forwards state
         {
-            motorparams.put(1);
-            motorparams.put(200);
-            motorparams.put(200);
+            motordirection.put(1);
+            motorpower.put(150);
         }
         else if (dir == 2) // backwards state
         {
-            motorparams.put(2);
-            motorparams.put(100);
-            motorparams.put(100);
+            motordirection.put(2);
+            motorpower.put(150);
         }
         else if (dir == 3) // left turn state
         {
-            motorparams.put(3);
-            motorparams.put(100);
-            motorparams.put(100);
+            motordirection.put(3);
+            motorpower.put(150);
         }
         else if (dir == 4) // right turn state
         {
-            motorparams.put(4);
-            motorparams.put(100);
-            motorparams.put(100);  
-        }         
+            motordirection.put(4);
+            motorpower.put(150);
+        }    
+   
         vTaskDelay(1000); // Delays things so we can actually see stuff happening
     }
 }
@@ -439,61 +440,106 @@ void task_motor (void* p_params)
     const uint8_t in1 = D5; //PB_4
     const uint8_t in2 = D4; //PB_5
     const uint8_t in3 = A0; //PA_0
-    const uint8_t in4 = A1; //PA_1
+    const uint8_t in4 = A1; //PA_1'
+
+    pinMode(enA,OUTPUT);
+    pinMode(enB,OUTPUT);
+    pinMode(in1, OUTPUT);
+    pinMode(in2, OUTPUT);
+    pinMode(in3, OUTPUT);
+    pinMode(in4, OUTPUT);
+
+    digitalWrite(enA, HIGH);
+    digitalWrite(enB, HIGH);
 
     uint8_t motordata [3];
+    uint8_t motorapwm = 0;
+    uint8_t motorbpwm = 0;
 
     for (;;)
     {
-        if(motorparams.any())
+        if(motorpower.any())
         {
-            //Receiving motor parameters
-            for(uint8_t i = 1; i<=4; i++)
-            {
-                motorparams.get(motordata[i-1]);
-            }
+            // //Receiving motor parameters
+            // for(uint8_t i = 1; i<=4; i++)
+            // {
+            //     motorparams.get(motordata[i-1]);
+            // }
+
+            // Serial.print("Motor Parameters: ");
+            // Serial.println(motordata[0]);
+            // Serial.println(motordata[1]);
+            // Serial.println(motordata[2]);
+            motordirection.get(motordata[0]);
+            motorpower.get(motordata[1]);
+
+            Serial.print("Motor Parameters: ");
+            Serial.println(motordata[0]);
+            Serial.println(motordata[1]);
 
             //Set Direction
             if(motordata[0] == 1) //Forwards Direction
             {
                 Serial.println("forward");
-                pinMode(in1, HIGH);
-                pinMode(in2, LOW);
 
-                pinMode(in3, LOW);
-                pinMode(in4, HIGH);
+                pinMode(in1, OUTPUT); // this shouldn't do anything, but the code breaks without it
+                pinMode(in2, OUTPUT);
+                pinMode(in3, OUTPUT);
+                pinMode(in4, OUTPUT);
+                
+                digitalWrite(in1, LOW);
+                digitalWrite(in4, LOW);
+                motorapwm = in2;
+                motorbpwm = in3;
             }
             else if(motordata[0] == 2) //Reverse Direction
             {
                 Serial.println("backward");
-                pinMode(in1, LOW);
-                pinMode(in2, HIGH);
 
-                pinMode(in3, HIGH);
-                pinMode(in4, LOW);
+                pinMode(in1, OUTPUT); // this shouldn't do anything, but the code breaks without it
+                pinMode(in2, OUTPUT);
+                pinMode(in3, OUTPUT);
+                pinMode(in4, OUTPUT);
+
+                digitalWrite(in2, LOW);
+                digitalWrite(in3, LOW);
+                motorapwm = in1;
+                motorbpwm = in4;    
             }
             else if(motordata[0] == 3) //Left Turn
             {
                 Serial.println("left");
-                pinMode(in1, HIGH);
-                pinMode(in2, LOW);
 
-                pinMode(in3, HIGH);
-                pinMode(in4, LOW);
+                pinMode(in1, OUTPUT); // this shouldn't do anything, but the code breaks without it
+                pinMode(in2, OUTPUT);
+                pinMode(in3, OUTPUT);
+                pinMode(in4, OUTPUT);
+                
+                digitalWrite(in1, LOW);
+                digitalWrite(in3, LOW);
+                motorapwm = in2;
+                motorbpwm = in4;
             }
             else if(motordata[0] == 4) //Right Turn
             {
                 Serial.println("right");
-                pinMode(in1, LOW);
-                pinMode(in2, HIGH);
 
-                pinMode(in3, LOW);
-                pinMode(in4, HIGH);
+                pinMode(in1, OUTPUT); // this shouldn't do anything, but the code breaks without it
+                pinMode(in2, OUTPUT);
+                pinMode(in3, OUTPUT);
+                pinMode(in4, OUTPUT);
+
+                digitalWrite(in2, LOW);
+                digitalWrite(in4, LOW);
+                motorapwm = in1;
+                motorbpwm = in3;
             }
 
             //Set PWM signal
-            analogWrite(enA, motordata[1]);
-            analogWrite(enB, motordata[2]);
+            analogWrite(motorapwm, motordata[1]);
+            analogWrite(motorbpwm, motordata[1]);
+
+            vTaskDelay(10);
         }
     }
 }
