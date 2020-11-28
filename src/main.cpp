@@ -434,12 +434,12 @@ void task_motor (void* p_params)
     (void)p_params;            // Does nothing but shut up a compiler warning  
 
     //Set Pins
-    const uint8_t enA = 11;
-    const uint8_t enB = 11;
-    const uint8_t in1 = 11;
-    const uint8_t in2 = 11;
-    const uint8_t in3 = 11;
-    const uint8_t in4 = 11;
+    const uint8_t enA = D2; //PA_10
+    const uint8_t enB = A4; //PC_1
+    const uint8_t in1 = D5; //PB_4
+    const uint8_t in2 = D4; //PB_5
+    const uint8_t in3 = A0; //PA_0
+    const uint8_t in4 = A1; //PA_1
 
     uint8_t motordata [3];
 
