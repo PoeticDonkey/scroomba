@@ -24,10 +24,10 @@
 Queue<float> thermaldata (640, "Thermal Data"); //Thermal Camera Data Queue
 Queue<uint8_t> motordirection (1, "Motor Task Parameters"); // What motors should do queue
 Queue<uint8_t> motorpower (1, "Motor Task Parameters"); // What motors should do queue
-Queue<uint8_t> limitdetect (10, "Limit Switch Detection Flag"); // Limit Switch Flag
-Queue<uint8_t> reset_this (10, "Reset Hunt Flag"); // Flag to reset thermal cam
-Queue<uint8_t> direction (10, "Person Direction Flag"); // Direction of detected person
-Queue<uint8_t> too_close (10, "ToF Crash Prevention Flag"); // Stop before running into something
+Queue<uint8_t> limitdetect (1, "Limit Switch Detection Flag"); // Limit Switch Flag
+Queue<uint8_t> reset_this (1, "Reset Hunt Flag"); // Flag to reset thermal cam
+Queue<uint8_t> direction (1, "Person Direction Flag"); // Direction of detected person
+Queue<uint8_t> too_close (1, "ToF Crash Prevention Flag"); // Stop before running into something
 
 /** @brief   Task which runs the ToF sensor. 
  *  @details This task initializes and runs the Time of Flight sensor.
@@ -322,6 +322,7 @@ void task_mastermind (void* p_params)
     (void)p_params;            // Does nothing but shut up a compiler warning  
 
     uint8_t dir = 0;           // direction defaults to stopped
+    byte state_m = 0;
 
     for (;;)
     {   
@@ -338,51 +339,76 @@ void task_mastermind (void* p_params)
             //and then transition to stopped state.
             //Only would work when limit switches are on back.
                         
-            motorparams.put(1);
-            motorparams.put(200);
-            motorparams.put(200);
+            motordirection.put(1);
+            motorpower.put(200);
             Serial.println("inch forward");
             vTaskDelay(200);
             limitdetect.get(dir);
             reset_this.put(1); // reset system when back limit switch hit
+
+            motordirection.put(1);
+            motorpower.put(0);
+            state_m = 1; //Reset State
         }
         */
         if (too_close.any()) // triggers if ToF sees something too close
         {
             too_close.get(dir);
+            state_m = 2;
         }
         else if (direction.any()) // triggers if thermal cam finds a person
         {
             direction.get(dir);
         }
 
-        if (dir == 0) // stopped state
-        {        
-            motordirection.put(1); // doesn't really matter if 1/2/3/4 but needs to be one of them
-            motorpower.put(0);
+        if (state_m == 0) //Initialization State
+        {
+            state_m = 2;
         }
-        else if (dir == 1) // forwards state
+        else if (state_m == 1) //Reset State
         {
             motordirection.put(1);
-            motorpower.put(150);
+            motorpower.put(200);
+            Serial.println("inch forward");
+            vTaskDelay(200);
+            limitdetect.get(dir);
+            reset_this.put(1); // reset system when back limit switch hit
         }
-        else if (dir == 2) // backwards state
+        else if (state_m == 2) //Waiting/Hunting State
+        {
+            if (dir == 0) // stopped state
+            {        
+                motordirection.put(1); // doesn't really matter if 1/2/3/4 but needs to be one of them
+                motorpower.put(0);
+            }
+            else if (dir == 1) // forwards state
+            {
+                motordirection.put(1);
+                motorpower.put(150);
+            }
+            else if (dir == 2) // backwards state
+            {
+                motordirection.put(2);
+                motorpower.put(150);
+            }
+            else if (dir == 3) // left turn state
+            {
+                motordirection.put(3);
+                motorpower.put(150);
+            }
+            else if (dir == 4) // right turn state
+            {
+                motordirection.put(4);
+                motorpower.put(150);
+            }    
+        }
+        else if (state_m == 3) //Reverse State
         {
             motordirection.put(2);
-            motorpower.put(150);
+            motorpower.put(125);
         }
-        else if (dir == 3) // left turn state
-        {
-            motordirection.put(3);
-            motorpower.put(150);
-        }
-        else if (dir == 4) // right turn state
-        {
-            motordirection.put(4);
-            motorpower.put(150);
-        }    
    
-        vTaskDelay(1000); // Delays things so we can actually see stuff happening
+        vTaskDelay(10); // Delays things so we can actually see stuff happening
     }
 }
 
