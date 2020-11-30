@@ -24,10 +24,12 @@
 Queue<float> thermaldata (640, "Thermal Data"); //Thermal Camera Data Queue
 Queue<uint8_t> motordirection (1, "Motor Task Parameters"); // What motors should do queue
 Queue<uint8_t> motorpower (1, "Motor Task Parameters"); // What motors should do queue
-Queue<uint8_t> limitdetect (1, "Limit Switch Detection Flag"); // Limit Switch Flag
+Queue<uint8_t> limitdetect_back (1, "Back Limit Switch Detection Flag"); // Back Limit Switch Flag
+Queue<uint8_t> limitdetect_front (1, "Front Limit Switch Detection Flag"); // Front Limit Switch Flag
 Queue<uint8_t> reset_this (1, "Reset Hunt Flag"); // Flag to reset thermal cam
 Queue<uint8_t> direction (1, "Person Direction Flag"); // Direction of detected person
 Queue<uint8_t> too_close (1, "ToF Crash Prevention Flag"); // Stop before running into something
+Queue<uint8_t> crash_detect_active (1, "ToF in active use flag"); // Flag to signal ToF in active use
 
 /** @brief   Task which runs the ToF sensor. 
  *  @details This task initializes and runs the Time of Flight sensor.
@@ -35,52 +37,87 @@ Queue<uint8_t> too_close (1, "ToF Crash Prevention Flag"); // Stop before runnin
  *                         inconsistent measuremeent past 200mm.
  *  @param   p_params A pointer to function parameters which we don't use.
  */
-void task_tof (void* p_params)
-{
-    (void)p_params;            // Does nothing but shut up a compiler warning
 
-    Adafruit_VL53L0X lox = Adafruit_VL53L0X();
-
-    Serial.println("Adafruit VL53L0X test");
-    if (!lox.begin()) 
-    {
-        Serial.println(F("Failed to boot VL53L0X"));
-        while(1);
-        {
-            vTaskDelay(10000);
-        }
-    }
-    // power 
-    Serial.println(F("VL53L0X API Simple Ranging example\n\n"));
-
-    for (;;)
-    {
-        VL53L0X_RangingMeasurementData_t measure;
+// void task_tof (void* p_params)
+// {
     
-        Serial.print("Reading a measurement... ");
-        lox.rangingTest(&measure, false); // pass in 'true' to get debug data printout!
+//     (void)p_params;            // Does nothing but shut up a compiler warning
+//     bool too_far_1 = true;    // flags to clean up the ToF junk data
+//     bool too_far_2 = true;
+//     bool too_far_3 = true;
+//     uint16_t m1 = 0;            // values to average to make up for ToF taking bad measurements as good
+//     uint16_t m2 = 0;
+//     uint16_t m3 = 0;
+//     uint16_t ave = 0;           // the value the m's are averaged in
+//     uint8_t junk = 0;          // variable to trash queue flag data
+//     Adafruit_VL53L0X lox = Adafruit_VL53L0X();
+    
+//     vTaskDelay(100); // let sensor boot up
 
-        if (measure.RangeStatus != 4)   // phase failures have incorrect data
-        {
-            if(measure.RangeMilliMeter<=40)
-            {
-                too_close.put(2);
-                Serial.print("Distance (mm): ");
-                Serial.print(measure.RangeMilliMeter); Serial.println(" too close!");
-            }
-            else
-            {
-                Serial.print("Distance (mm): "); Serial.println(measure.RangeMilliMeter);
-            }            
-        } 
-        else 
-        {
-            Serial.println(" out of range ");
-        }
-        vTaskDelay(10000); // Delays things so we can actually see stuff happening
+//     Serial.println("Adafruit VL53L0X test");
+//     if (!lox.begin()) 
+//     {
+//         Serial.println(F("Failed to boot VL53L0X"));
+//         while(1)
+//         {
+//             vTaskDelay(10000);
+//         }
+//     }
+//     // power 
+//     Serial.println(F("VL53L0X API Simple Ranging example\n\n"));
+    
+//     VL53L0X_RangingMeasurementData_t measure;  // testing to see if this was an object and causing issues
+    
+//     for (;;)
+//     {
+//         // VL53L0X_RangingMeasurementData_t measure;
 
-    }
-}
+//         if (crash_detect_active.any()) // only care about ToF data when active crash detection is needed
+//         {
+//             Serial.print("Reading a measurement... ");
+//             lox.rangingTest(&measure, false); // pass in 'true' to get debug data printout!
+
+//             too_far_3=too_far_2;
+//             too_far_2=too_far_1;
+            
+//             if (measure.RangeStatus != 4)   // phase failures have incorrect data
+//             {
+//                 m3=m2;
+//                 m2=m1;
+//                 m1=measure.RangeMilliMeter;
+//                 if(m1 && m2 && m3)
+//                 {
+//                     ave = (m1+m2+m3)/3;
+//                     if((ave<=70) && !(too_far_1 || too_far_2 || too_far_3))
+//                     {
+//                         crash_detect_active.get(junk);
+//                         too_close.put(2);
+//                         Serial.print("Distance (mm): ");
+//                         Serial.print(ave); Serial.println(" too close!");
+
+//                         too_far_1 = true;   // reset these values
+//                         too_far_2 = true;
+//                         too_far_3 = true;
+//                     }
+//                     else
+//                     {
+//                         Serial.print("Distance (mm): "); Serial.println(ave);
+//                         too_far_1 =false;
+//                     }
+//                 }                
+//             } 
+//             else 
+//             {
+//                 Serial.println(" out of range ");
+//                 too_far_1 = true;
+//                 m1=2000; // junk value at max range of limit switch to help deal with bad data
+//             }
+//         }
+        
+//         vTaskDelay(100); // Delays things so we can actually see stuff happening
+
+//     }
+// }
 
 /** @brief   Task which runs the Thermal Camera. 
  *  @details This task initializes and collects data from the Thermal Camera into a [64] array.
@@ -121,7 +158,7 @@ void task_thermal (void* p_params)
         }
 
         //delay a bit
-        vTaskDelay(500);
+        vTaskDelay(300);
     }
 
 }
@@ -219,7 +256,6 @@ void task_thermaldecoder (void* p_params)
                     if (high_i<16) // was 24
                     {
                         direction.put(RIGHT);
-                        //tbd = RIGHT;
                     }
                     else if (high_i>=48) // was 40
                     {
@@ -248,7 +284,7 @@ void task_thermaldecoder (void* p_params)
                     }
                     Serial.println("]");
                     Serial.println();
-                    */
+                    */                    
                 }
             }
             
@@ -257,7 +293,7 @@ void task_thermaldecoder (void* p_params)
                 Serial.println("calibrating"); // temp code while we're testing
 
                 count++; // keep track of times calibration data is taken
-                if (count >= 10) // set the number of times calibration data should be averaged over
+                if (count >= 50) // set the number of times calibration data should be averaged over
                 {
                     for(uint8_t i = 1; i<=AMG88xx_PIXEL_ARRAY_SIZE; i++)
                     {
@@ -343,15 +379,24 @@ void task_mastermind (void* p_params)
         }
         else if (state_m == 1) //Waiting/Hunting State
         {
-            if (too_close.any()) // triggers if ToF sees something too close
+            if (limitdetect_front.any())
             {
-                too_close.get(dir);
+                limitdetect_front.get(dir);
                 state_m = 2;
             }
+            // too_close is from ToF code that's not in use
+            // if (too_close.any()) // triggers if ToF sees something too close
+            // {
+            //     too_close.get(dir);
+            //     state_m = 2;
+            // }
             else if (direction.any()) // triggers if thermal cam finds a person
             {
                 direction.get(dir);
-
+                // if (crash_detect_active.is_empty()) // from the ToF stuff
+                // {
+                //     crash_detect_active.put(1);
+                // }
                 if (dir == 0) // stopped state, probably legacy at this point.
                 {        
                     motordirection.put(1); // doesn't really matter if 1/2/3/4 but needs to be one of them
@@ -406,8 +451,9 @@ void task_mastermind (void* p_params)
             motorpower.put(200);
             Serial.println("inch forward"); // so we see this happened during debug
             vTaskDelay(200); // experimental number to give it time to move forward
-            limitdetect.get(dir); // legacy from old method but still need to clear limitdetect
+            limitdetect_back.get(dir); // legacy from old method but still need to clear limitdetect
             reset_this.put(1); // reset system when back limit switch hit
+            crash_detect_active.put(1); // reset ToF active use flag
             state_m = 1;       // go back to waiting/hunting state
         }
         else // should never get here
@@ -426,7 +472,7 @@ void task_mastermind (void* p_params)
  *           with some user while other more important things are going on.
  *  @param   p_params A pointer to function parameters which we don't use.
  */
-void task_limit (void* p_params)
+void task_limit_back (void* p_params)
 {
     (void)p_params;            // Does nothing but shut up a compiler warning  
     
@@ -440,10 +486,49 @@ void task_limit (void* p_params)
         //checks if limit switches are pressed
         if (digitalRead(pin) || digitalRead(pin2))      //If the pin is high, then limit switch detected a boundary
         {
-            limitdetect.put(0); // put dir stop value in queue
-            while(limitdetect.any())
+            limitdetect_back.put(0); // put dir stop value in queue
+            while(limitdetect_back.any())
             {
                 vTaskDelay(100); // do nothing until mastermind
+            }
+            /*
+            limitdetect.put(1);
+            status = 1;
+
+            while(status)
+            {
+                limitdetect.peek(status);
+                vTaskDelay(100);
+            }
+            */
+        }
+        vTaskDelay(50); // Delays things so we can actually see stuff happening
+    }
+}
+
+/** @brief   Task which interacts with a user. 
+ *  @details This task demonstrates how to use a FreeRTOS task for interacting
+ *           with some user while other more important things are going on.
+ *  @param   p_params A pointer to function parameters which we don't use.
+ */
+void task_limit_front (void* p_params)
+{
+    (void)p_params;            // Does nothing but shut up a compiler warning  
+    
+    const uint8_t pin = 11; //FIND REAL PINS
+    const uint8_t pin2 = 11; //FIND REAL PINS
+
+//    float status = 0; // I decided I don't like this method -- Michael
+
+    for (;;)
+    {
+        //checks if limit switches are pressed
+        if (digitalRead(pin) || digitalRead(pin2))      //If the pin is high, then limit switch detected a boundary
+        {
+            limitdetect_front.put(2); // put dir back value in queue
+            while(limitdetect_front.any())
+            {
+                vTaskDelay(100); // do nothing until mastermind clears it
             }
             /*
             limitdetect.put(1);
@@ -575,13 +660,13 @@ void setup ()
     delay (2000);
     Serial << endl << endl << "ME507 UI Lab Starting Program" << endl;
 
-    // Create a task which prints a slightly disagreeable message
-    xTaskCreate (task_tof,
-                 "User Int.",                     // Name for printouts
-                 1536,                            // Stack size
-                 NULL,                            // Parameters for task fn.
-                 5,                               // Priority
-                 NULL);                           // Task handle
+    // Create a task which runs the ToF sensor, not in use due to ToF hardware limitations
+    // xTaskCreate (task_tof,
+    //              "User Int.",                     // Name for printouts
+    //              1536,                            // Stack size
+    //              NULL,                            // Parameters for task fn.
+    //              5,                               // Priority
+    //              NULL);                           // Task handle
 
     // Create a task which prints a more agreeable message
     xTaskCreate (task_thermal,
@@ -606,12 +691,18 @@ void setup ()
                  4,                               // Priority
                  NULL);    
 
-    xTaskCreate (task_limit,
+    xTaskCreate (task_limit_back,
                  "Simul.",
                  1024,                            // Stack size
                  NULL,
                  4,                               // Priority
                  NULL); 
+    xTaskCreate (task_limit_front,
+                 "Simul.",
+                 1024,                            // Stack size
+                 NULL,
+                 4,                               // Priority
+                 NULL);
 
     xTaskCreate (task_motor,
                  "Simul.",
