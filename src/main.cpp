@@ -15,7 +15,7 @@
     #include <STM32FreeRTOS.h>
 #endif
 
-#include <Adafruit_VL53L0X.h>
+// #include <Adafruit_VL53L0X.h> // not using the ToF right now
 #include <Wire.h>
 #include <Adafruit_AMG88xx.h>
 #include "taskqueue.h"
@@ -28,8 +28,8 @@ Queue<uint8_t> limitdetect_back (1, "Back Limit Switch Detection Flag"); // Back
 Queue<uint8_t> limitdetect_front (1, "Front Limit Switch Detection Flag"); // Front Limit Switch Flag
 Queue<uint8_t> reset_this (1, "Reset Hunt Flag"); // Flag to reset thermal cam
 Queue<uint8_t> direction (1, "Person Direction Flag"); // Direction of detected person
-Queue<uint8_t> too_close (1, "ToF Crash Prevention Flag"); // Stop before running into something
-Queue<uint8_t> crash_detect_active (1, "ToF in active use flag"); // Flag to signal ToF in active use
+// Queue<uint8_t> too_close (1, "ToF Crash Prevention Flag"); // Stop before running into something // not using ToF right now
+// Queue<uint8_t> crash_detect_active (1, "ToF in active use flag"); // Flag to signal ToF in active use
 
 /** @brief   Task which runs the ToF sensor. 
  *  @details This task initializes and runs the Time of Flight sensor.
@@ -204,7 +204,7 @@ void task_thermaldecoder (void* p_params)
             high_v = 0;
             high_i = 0;
             reset_this.get(reset); // clear reset flag
-            Serial.println("reset!");
+            Serial.println("Scroomba reset!");
         }
         else
         {
@@ -429,16 +429,16 @@ void task_mastermind (void* p_params)
             motordirection.put(2);
             motorpower.put(125);
 
-            /*
+            
             //bot should keep backing up until the limit switches are pressed.
             //when pressed, bot should stop backing up and begin reset.
-            if(limitdetect.any()) // triggers if limit switch hit something
+            if(limitdetect_back.any()) // triggers if limit switch hit something
             {                
                 motordirection.put(1);
                 motorpower.put(0);
                 state_m = 3; //Reset State
             }
-            */
+            
 
         }
         else if (state_m == 3) //Reset State
@@ -450,10 +450,11 @@ void task_mastermind (void* p_params)
             motordirection.put(1);
             motorpower.put(200);
             Serial.println("inch forward"); // so we see this happened during debug
-            vTaskDelay(200); // experimental number to give it time to move forward
+            vTaskDelay(500); // experimental number to give it time to move forward
+            motorpower.put(0);
             limitdetect_back.get(dir); // legacy from old method but still need to clear limitdetect
             reset_this.put(1); // reset system when back limit switch hit
-            crash_detect_active.put(1); // reset ToF active use flag
+            // crash_detect_active.put(1); // reset ToF active use flag
             state_m = 1;       // go back to waiting/hunting state
         }
         else // should never get here
@@ -467,29 +468,30 @@ void task_mastermind (void* p_params)
     }
 }
 
-/** @brief   Task which interacts with a user. 
- *  @details This task demonstrates how to use a FreeRTOS task for interacting
- *           with some user while other more important things are going on.
+/** @brief   Task which handles the back limit switches
+ *  @details This task initializes the pins and raises a flag for
+ *           Mastermind if the back limit switches were pressed.
  *  @param   p_params A pointer to function parameters which we don't use.
  */
 void task_limit_back (void* p_params)
 {
     (void)p_params;            // Does nothing but shut up a compiler warning  
     
-    const uint8_t pin = 11; //FIND REAL PINS
-    const uint8_t pin2 = 11; //FIND REAL PINS
+    const uint8_t pin = D9; //FIND REAL PINS
+
+    pinMode(pin,INPUT);
 
 //    float status = 0; // I decided I don't like this method -- Michael
 
     for (;;)
     {
         //checks if limit switches are pressed
-        if (digitalRead(pin) || digitalRead(pin2))      //If the pin is high, then limit switch detected a boundary
+        if (digitalRead(pin))      //If the pin is high, then limit switch detected a boundary
         {
             limitdetect_back.put(0); // put dir stop value in queue
             while(limitdetect_back.any())
             {
-                vTaskDelay(100); // do nothing until mastermind
+                vTaskDelay(500); // do nothing until mastermind clears it
             }
             /*
             limitdetect.put(1);
@@ -506,29 +508,30 @@ void task_limit_back (void* p_params)
     }
 }
 
-/** @brief   Task which interacts with a user. 
- *  @details This task demonstrates how to use a FreeRTOS task for interacting
- *           with some user while other more important things are going on.
+/** @brief   Task which handles the front limit switches
+ *  @details This task initializes the pins and raises a flag for
+ *           Mastermind if the front limit switches were pressed.
  *  @param   p_params A pointer to function parameters which we don't use.
  */
 void task_limit_front (void* p_params)
 {
     (void)p_params;            // Does nothing but shut up a compiler warning  
     
-    const uint8_t pin = 11; //FIND REAL PINS
-    const uint8_t pin2 = 11; //FIND REAL PINS
+    const uint8_t pin = D8; //FIND REAL PINS
+
+    pinMode(pin,INPUT);
 
 //    float status = 0; // I decided I don't like this method -- Michael
 
     for (;;)
     {
         //checks if limit switches are pressed
-        if (digitalRead(pin) || digitalRead(pin2))      //If the pin is high, then limit switch detected a boundary
+        if (digitalRead(pin))      //If the pin is high, then limit switch detected a boundary
         {
             limitdetect_front.put(2); // put dir back value in queue
             while(limitdetect_front.any())
             {
-                vTaskDelay(100); // do nothing until mastermind clears it
+                vTaskDelay(500); // do nothing until mastermind clears it
             }
             /*
             limitdetect.put(1);
