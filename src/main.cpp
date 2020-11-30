@@ -46,6 +46,9 @@ void task_tof (void* p_params)
     {
         Serial.println(F("Failed to boot VL53L0X"));
         while(1);
+        {
+            vTaskDelay(10000);
+        }
     }
     // power 
     Serial.println(F("VL53L0X API Simple Ranging example\n\n"));
@@ -59,7 +62,7 @@ void task_tof (void* p_params)
 
         if (measure.RangeStatus != 4)   // phase failures have incorrect data
         {
-            if(measure.RangeMilliMeter<=50)
+            if(measure.RangeMilliMeter<=40)
             {
                 too_close.put(2);
                 Serial.print("Distance (mm): ");
@@ -72,9 +75,9 @@ void task_tof (void* p_params)
         } 
         else 
         {
-            //Serial.println(" out of range ");
+            Serial.println(" out of range ");
         }
-        vTaskDelay(1000); // Delays things so we can actually see stuff happening
+        vTaskDelay(10000); // Delays things so we can actually see stuff happening
 
     }
 }
@@ -95,8 +98,6 @@ void task_thermal (void* p_params)
     Adafruit_AMG88xx amg;
     float pixels[AMG88xx_PIXEL_ARRAY_SIZE];
     
-    Serial.println(F("AMG88xx pixels"));
-
     bool status = 0;
     
     // default settings
@@ -107,10 +108,6 @@ void task_thermal (void* p_params)
         while (1);
     }
     
-    // Serial.println("-- Pixels Test --");
-
-    // Serial.println();
-
     vTaskDelay(100); // let sensor boot up
 
     for (;;)
@@ -123,18 +120,8 @@ void task_thermal (void* p_params)
             thermaldata.put(pixels[i-1]);
         }
 
-        // Serial.print("[");
-        // for(int i=1; i<=AMG88xx_PIXEL_ARRAY_SIZE; i++)
-        // {
-        //     Serial.print(pixels[i-1]);
-        //     Serial.print(", ");
-        //     if( i%8 == 0 ) Serial.println();
-        // }
-        // Serial.println("]");
-        // Serial.println();
-
         //delay a bit
-        vTaskDelay(2000);
+        vTaskDelay(500);
     }
 
 }
@@ -206,7 +193,7 @@ void task_thermaldecoder (void* p_params)
                 else if (!detect) // looking for person
                 {
                     diff[i-1] = pixels[i-1] - ambient[i-1];
-                    if (diff[i-1]>=3) // checking if differential is greater than threshold for person
+                    if (diff[i-1]>=5) // checking if differential is greater than threshold for person
                     {
                         detect = true; // switch to detected mode
                         high_v = pixels[i-1]; // highest value is now from here
@@ -228,37 +215,21 @@ void task_thermaldecoder (void* p_params)
             if (calib)      // figure out when we should leave the calib state
             {             
                 if (detect)   // figure out when we get out of the detected state
-                {
-                    /*
-                    Serial.println("Temperatures");
-                    Serial.print("[");
-                    for(int i=1; i<=AMG88xx_PIXEL_ARRAY_SIZE; i++)
-                    {
-                        Serial.print(pixels[i-1]);
-                        Serial.print(", ");
-                        if( i%8 == 0 ) Serial.println();
-                    }
-                    Serial.println("]");
-                    Serial.println();     
-                    */               
-                    
+                {   
                     if (high_i<16) // was 24
                     {
                         direction.put(RIGHT);
                         //tbd = RIGHT;
-                        Serial.println("GO RIGHT!");
                     }
                     else if (high_i>=48) // was 40
                     {
                         direction.put(LEFT);
                         //tbd = LEFT;
-                        Serial.println("GO LEFT!");
                     }
                     else
                     {
                         direction.put(MIDDLE);
                         //tbd = MIDDLE;
-                        Serial.println("Middle");
                     }
                     high_v = 0;
                     high_i = 0;                    
@@ -351,61 +322,99 @@ void task_mastermind (void* p_params)
             state_m = 1; //Reset State
         }
         */
+
+       /*
+       // old code format, cleaning it up
         if (too_close.any()) // triggers if ToF sees something too close
         {
             too_close.get(dir);
-            state_m = 2;
+            state_m = 3;
         }
         else if (direction.any()) // triggers if thermal cam finds a person
         {
             direction.get(dir);
         }
-
+        */
         if (state_m == 0) //Initialization State
         {
-            state_m = 2;
-        }
-        else if (state_m == 1) //Reset State
-        {
+            state_m = 1;
             motordirection.put(1);
-            motorpower.put(200);
-            Serial.println("inch forward");
-            vTaskDelay(200);
-            limitdetect.get(dir);
-            reset_this.put(1); // reset system when back limit switch hit
+            motorpower.put(0);
         }
-        else if (state_m == 2) //Waiting/Hunting State
+        else if (state_m == 1) //Waiting/Hunting State
         {
-            if (dir == 0) // stopped state
-            {        
-                motordirection.put(1); // doesn't really matter if 1/2/3/4 but needs to be one of them
-                motorpower.put(0);
-            }
-            else if (dir == 1) // forwards state
+            if (too_close.any()) // triggers if ToF sees something too close
             {
-                motordirection.put(1);
-                motorpower.put(150);
+                too_close.get(dir);
+                state_m = 2;
             }
-            else if (dir == 2) // backwards state
+            else if (direction.any()) // triggers if thermal cam finds a person
             {
-                motordirection.put(2);
-                motorpower.put(150);
-            }
-            else if (dir == 3) // left turn state
-            {
-                motordirection.put(3);
-                motorpower.put(150);
-            }
-            else if (dir == 4) // right turn state
-            {
-                motordirection.put(4);
-                motorpower.put(150);
-            }    
+                direction.get(dir);
+
+                if (dir == 0) // stopped state, probably legacy at this point.
+                {        
+                    motordirection.put(1); // doesn't really matter if 1/2/3/4 but needs to be one of them
+                    motorpower.put(0);
+                }
+                else if (dir == 1) // forwards state
+                {
+                    motordirection.put(1);
+                    motorpower.put(125);
+                }
+                // else if (dir == 2) // old backwards state, unnecessary now
+                // {
+                //     motordirection.put(2);
+                //     motorpower.put(125);
+                // }
+                else if (dir == 3) // left turn state
+                {
+                    motordirection.put(3);
+                    motorpower.put(125);
+                }
+                else if (dir == 4) // right turn state
+                {
+                    motordirection.put(4);
+                    motorpower.put(125);
+                }
+            }               
         }
-        else if (state_m == 3) //Reverse State
+        else if (state_m == 2) //Reverse State
         {
             motordirection.put(2);
             motorpower.put(125);
+
+            /*
+            //bot should keep backing up until the limit switches are pressed.
+            //when pressed, bot should stop backing up and begin reset.
+            if(limitdetect.any()) // triggers if limit switch hit something
+            {                
+                motordirection.put(1);
+                motorpower.put(0);
+                state_m = 3; //Reset State
+            }
+            */
+
+        }
+        else if (state_m == 3) //Reset State
+        {
+            //Experimental method to unpress limit switches
+            //and then transition to stopped state.
+            //Only works for limit switches on back of bot.
+
+            motordirection.put(1);
+            motorpower.put(200);
+            Serial.println("inch forward"); // so we see this happened during debug
+            vTaskDelay(200); // experimental number to give it time to move forward
+            limitdetect.get(dir); // legacy from old method but still need to clear limitdetect
+            reset_this.put(1); // reset system when back limit switch hit
+            state_m = 1;       // go back to waiting/hunting state
+        }
+        else // should never get here
+        {
+            Serial.println("Something is very wrong in mastermind");
+            Serial.println("reinitializing");
+            state_m = 0;    // reinitialize to try and fix things
         }
    
         vTaskDelay(10); // Delays things so we can actually see stuff happening
@@ -499,15 +508,9 @@ void task_motor (void* p_params)
             motordirection.get(motordata[0]);
             motorpower.get(motordata[1]);
 
-            Serial.print("Motor Parameters: ");
-            Serial.println(motordata[0]);
-            Serial.println(motordata[1]);
-
             //Set Direction
             if(motordata[0] == 1) //Forwards Direction
             {
-                Serial.println("forward");
-
                 pinMode(in1, OUTPUT); // this shouldn't do anything, but the code breaks without it
                 pinMode(in2, OUTPUT);
                 pinMode(in3, OUTPUT);
@@ -520,8 +523,6 @@ void task_motor (void* p_params)
             }
             else if(motordata[0] == 2) //Reverse Direction
             {
-                Serial.println("backward");
-
                 pinMode(in1, OUTPUT); // this shouldn't do anything, but the code breaks without it
                 pinMode(in2, OUTPUT);
                 pinMode(in3, OUTPUT);
@@ -534,8 +535,6 @@ void task_motor (void* p_params)
             }
             else if(motordata[0] == 3) //Left Turn
             {
-                Serial.println("left");
-
                 pinMode(in1, OUTPUT); // this shouldn't do anything, but the code breaks without it
                 pinMode(in2, OUTPUT);
                 pinMode(in3, OUTPUT);
@@ -548,8 +547,6 @@ void task_motor (void* p_params)
             }
             else if(motordata[0] == 4) //Right Turn
             {
-                Serial.println("right");
-
                 pinMode(in1, OUTPUT); // this shouldn't do anything, but the code breaks without it
                 pinMode(in2, OUTPUT);
                 pinMode(in3, OUTPUT);
@@ -583,7 +580,7 @@ void setup ()
                  "User Int.",                     // Name for printouts
                  1536,                            // Stack size
                  NULL,                            // Parameters for task fn.
-                 4,                               // Priority
+                 5,                               // Priority
                  NULL);                           // Task handle
 
     // Create a task which prints a more agreeable message
