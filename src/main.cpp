@@ -26,6 +26,7 @@ Queue<uint8_t> motordirection (1, "Motor Task Parameters"); // What motors shoul
 Queue<uint8_t> motorpower (1, "Motor Task Parameters"); // What motors should do queue
 Queue<uint8_t> limitdetect_back (1, "Back Limit Switch Detection Flag"); // Back Limit Switch Flag
 Queue<uint8_t> limitdetect_front (1, "Front Limit Switch Detection Flag"); // Front Limit Switch Flag
+Queue<uint8_t> stop_hunt (1, "Stop Thermal Hunt Flag"); // Flag to signal the thermal cam should stop hunting
 Queue<uint8_t> reset_this (1, "Reset Hunt Flag"); // Flag to reset thermal cam
 Queue<uint8_t> direction (1, "Person Direction Flag"); // Direction of detected person
 // Queue<uint8_t> too_close (1, "ToF Crash Prevention Flag"); // Stop before running into something // not using ToF right now
@@ -195,7 +196,6 @@ void task_thermaldecoder (void* p_params)
 
     for (;;)
     {
-        
         if(reset_this.any()) // reset actions
         {
             calib = false;
@@ -204,19 +204,27 @@ void task_thermaldecoder (void* p_params)
             high_v = 0;
             high_i = 0;
             reset_this.get(reset); // clear reset flag
+            if (stop_hunt.any())
+            {
+                stop_hunt.get(reset); // clear stop hunt flag
+            }            
             Serial.println("Scroomba reset!");
         }
-        else
-        {
-            reset = 0; // was worried about two if statements next to each other
-        }
+        
         
         if(thermaldata.any())
         {
             for(uint8_t i = 1; i<=AMG88xx_PIXEL_ARRAY_SIZE; i++)
             {
                 thermaldata.get(pixels[i-1]);
-                if (!calib)          // get the data for calibration
+                if (stop_hunt.any()) // flagged if backing up can cleared when scroomba is ready to reset
+                {
+                    if (direction.any()) // just in case stuff gets into it when it shouldn't
+                    {
+                        direction.get(reset); // get rid of the data
+                    }
+                }
+                else if (!calib)          // get the data for calibration
                 {
                     if (count == 0) // is there a better way to handle the first time?
                     {
@@ -236,7 +244,7 @@ void task_thermaldecoder (void* p_params)
                         high_v = pixels[i-1]; // highest value is now from here
                         high_i = i-1;           // remember highest value index                    
                     }
-                }
+                }                
                 else
                 {
                     if (pixels[i-1]>high_v) // checking if differential is greater than highest val
@@ -249,59 +257,68 @@ void task_thermaldecoder (void* p_params)
 
             // code to check if it's working right
 
-            if (calib)      // figure out when we should leave the calib state
-            {             
-                if (detect)   // figure out when we get out of the detected state
-                {   
-                    if (high_i<16) // was 24
-                    {
-                        direction.put(RIGHT);
-                    }
-                    else if (high_i>=48) // was 40
-                    {
-                        direction.put(LEFT);
-                        //tbd = LEFT;
+            if (stop_hunt.is_empty())
+            {
+                if (calib)      // figure out when we should leave the calib state
+                {             
+                    if (detect)   // figure out when we get out of the detected state
+                    {   
+                        if (high_i<16) // was 24
+                        {
+                            direction.put(RIGHT);
+                            Serial.println("right");
+                        }
+                        else if (high_i>=48) // was 40
+                        {
+                            direction.put(LEFT);
+                            Serial.println("left");
+                        }
+                        else
+                        {
+                            direction.put(MIDDLE);
+                            Serial.println("middle");
+                        }
+                        high_v = 0;
+                        high_i = 0;                    
                     }
                     else
                     {
-                        direction.put(MIDDLE);
-                        //tbd = MIDDLE;
+                        Serial.println("Waiting");
+                        /*
+                        Serial.println("Temperature Differential");
+                        Serial.print("[");
+                        for(int i=1; i<=AMG88xx_PIXEL_ARRAY_SIZE; i++)
+                        {
+                            Serial.print(diff[i-1]);
+                            Serial.print(", ");
+                            if( i%8 == 0 ) Serial.println();
+                        }
+                        Serial.println("]");
+                        Serial.println();
+                        */                    
                     }
-                    high_v = 0;
-                    high_i = 0;                    
                 }
-                else
+                else // rest of calibration
                 {
-                    Serial.println("Waiting");
-                    /*
-                    Serial.println("Temperature Differential");
-                    Serial.print("[");
-                    for(int i=1; i<=AMG88xx_PIXEL_ARRAY_SIZE; i++)
+                    Serial.println("calibrating"); // temp code while we're testing
+
+                    count++; // keep track of times calibration data is taken
+                    if (count >= 50) // set the number of times calibration data should be averaged over
                     {
-                        Serial.print(diff[i-1]);
-                        Serial.print(", ");
-                        if( i%8 == 0 ) Serial.println();
+                        for(uint8_t i = 1; i<=AMG88xx_PIXEL_ARRAY_SIZE; i++)
+                        {
+                            ambient[i-1] = ambient[i-1]/count;
+                        }
+                        calib = true; // stops calibration mode
                     }
-                    Serial.println("]");
-                    Serial.println();
-                    */                    
                 }
+            }
+            else
+            {
+                Serial.println("not hunting");
             }
             
-            if(!calib) // rest of calibration
-            {
-                Serial.println("calibrating"); // temp code while we're testing
-
-                count++; // keep track of times calibration data is taken
-                if (count >= 50) // set the number of times calibration data should be averaged over
-                {
-                    for(uint8_t i = 1; i<=AMG88xx_PIXEL_ARRAY_SIZE; i++)
-                    {
-                        ambient[i-1] = ambient[i-1]/count;
-                    }
-                    calib = true; // stops calibration mode
-                }
-            }
+            
 
             /* // commented out so we see just the ambient data for now.
             
@@ -383,6 +400,7 @@ void task_mastermind (void* p_params)
             {
                 limitdetect_front.get(dir);
                 state_m = 2;
+                stop_hunt.put(1);   // tells the thermaldecoder to stop hunting
             }
             // too_close is from ToF code that's not in use
             // if (too_close.any()) // triggers if ToF sees something too close
@@ -426,6 +444,14 @@ void task_mastermind (void* p_params)
         }
         else if (state_m == 2) //Reverse State
         {
+            if (limitdetect_front.any()) // just in case this got pressed again while going back
+            {
+                limitdetect_front.get(dir);
+            }
+            else if (stop_hunt.is_empty()) // just in case this somehow got cleared when it shouldn't
+            {
+                stop_hunt.put(1);
+            }
             motordirection.put(2);
             motorpower.put(125);
 
@@ -448,10 +474,12 @@ void task_mastermind (void* p_params)
             //Only works for limit switches on back of bot.
 
             motordirection.put(1);
-            motorpower.put(200);
+            motorpower.put(150);
             Serial.println("inch forward"); // so we see this happened during debug
             vTaskDelay(500); // experimental number to give it time to move forward
+            motordirection.put(1);
             motorpower.put(0);
+            vTaskDelay(500); // let have time to come to a stop 
             limitdetect_back.get(dir); // legacy from old method but still need to clear limitdetect
             reset_this.put(1); // reset system when back limit switch hit
             // crash_detect_active.put(1); // reset ToF active use flag
@@ -486,13 +514,14 @@ void task_limit_back (void* p_params)
     for (;;)
     {
         //checks if limit switches are pressed
-        if (digitalRead(pin))      //If the pin is high, then limit switch detected a boundary
+        if (limitdetect_back.any())
+        {
+            vTaskDelay(500);
+        }
+        else if (digitalRead(pin))      //If the pin is high, then limit switch detected a boundary
         {
             limitdetect_back.put(0); // put dir stop value in queue
-            while(limitdetect_back.any())
-            {
-                vTaskDelay(500); // do nothing until mastermind clears it
-            }
+            
             /*
             limitdetect.put(1);
             status = 1;
@@ -504,7 +533,7 @@ void task_limit_back (void* p_params)
             }
             */
         }
-        vTaskDelay(50); // Delays things so we can actually see stuff happening
+        vTaskDelay(100); // Delays things so we can actually see stuff happening
     }
 }
 
@@ -526,13 +555,13 @@ void task_limit_front (void* p_params)
     for (;;)
     {
         //checks if limit switches are pressed
-        if (digitalRead(pin))      //If the pin is high, then limit switch detected a boundary
+        if (limitdetect_front.any())
+        {
+            vTaskDelay(500); // do nothing until mastermind clears it
+        }
+        else if (digitalRead(pin))      //If the pin is high, then limit switch detected a boundary
         {
             limitdetect_front.put(2); // put dir back value in queue
-            while(limitdetect_front.any())
-            {
-                vTaskDelay(500); // do nothing until mastermind clears it
-            }
             /*
             limitdetect.put(1);
             status = 1;
