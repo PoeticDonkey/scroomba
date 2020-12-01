@@ -1,0 +1,62 @@
+/** @file mainpage.dox
+*  @author Scott Mangin, Nicholas Holman, Michael Conn
+*  @copyright (c) 2020 by Team Scroomba
+* 
+*  @mainpage
+*
+*  @section s_intro Introduction
+*  This main page describes an ME507 project - The Scroomba. 
+*
+*  The Scroomba is a "scary roomba", an autonomous robot that is designed to scare and chase people
+*  in the spirit of Halloween. It utilizes a thermal camera to detect and track a heat signature
+*  (from a person or otherwise), then charges them using tracks powered by two DC motors. Once the robot
+*  makes *light* contact with the "target" through a limit switch, the robot then reverses until hitting a wall
+*  and resets, taking another set of calibration data and waiting for another "target". A picture of the Scroomba
+*  robot is shown in Figure 1.
+*
+*  @image html Scroomba.JPG
+*  Figure 1. Scroomba System
+*
+*  This project utilizes an STM32L476RG processor on a Nucleo-64 prototyping
+*  board. VSCode is used to program the module, using PlatformIO and the
+*  Arduino environment. 
+*
+*  The GitHub repository for this project can be found at: https://github.com/PoeticDonkey/scroomba
+*
+*  @section sec_thermCamTask Task - Thermal Camera
+*  The purpose of the Thermal Camera task is to initialize the thermal camera and to constantly
+*  refresh the 8 x 8 temperature array outputted by the thermal camera breakout board (and processed
+*  through the AMG88xx Sensor library). This float [64] array of temperature values is then placed
+*  into the thermal data queue for the thermal data decoder task. This task is contained in \link thermal_cam.cpp \endlink.
+*
+*  @section sec_thermDecoder Task - Thermal Data Decoder 
+*  The purpose of the Thermal Data Decoder Task is to take the data received from the thermal camera task
+*  and process it to both detect if a person is seen and if they are, to send what direction the person is
+*  relative to the current orientation of the robot. The robot is able to detect a person by first getting a
+*  calibrated state of environment temperature values to compare against new temperature acquisitons; if the
+*  temperature delta of a array segment is higher than a threshold, the task sends an alert flag with the direction
+*  of the person. This task is contained in \link thermal_decoder.cpp \endlink.
+*
+*  @section sec_motor Task - Motor Driver
+*  The purpose of the Motor Driver task is to take the direction and duty cycle received from the mastermind
+*  task and set the in pins for motor A and motor B accordingly, designating a pin for each motor to PWM
+*  depending on the direction configuration. This task is contained in \link motor.cpp \endlink.
+*
+*  @section sec_master Task - Mastermind
+*  The purpose of the Mastermind task is to handle the state of the entire robot, taking in the information given from the thermal
+*  and limit switch sensors to determine what state the robot should go to next. There are several states that mastermind can be in;
+*  these states are: initialization, reset, waiting/hunting, and reversing. The waiting/hunting state is dependent on the data transmitted
+*  from the thermal decoder task, where when no person is detected, the robot will wait. Once a person is detected, Scroomba will turn into
+*  "hunt" mode, where the data from the thermal decoder will direct mastermind to what motor direction and power to send to the motor driver
+*  task. In the reverse state, after Scroomba has made contact with the person it is chasing (front limit switch flag is triggered), it will start 
+*  to back up until the rear limit switch sends a flag when it contacts a surface behind it. Once this happens, Scroomba goes to the reset state
+*  to wait for its next target. This task is contained in \link main.cpp \endlink.
+*
+*  @section sec_limback Task - Back Limit Switch
+*  This simple task initializes the pin used to read the rear limit switch(es) and monitors if they are triggered (reads HIGH). If so, this task
+*  sends the information to mastermind to handle. This task is contained in \link limit_switch_back.cpp \endlink.
+*
+*  @section sec_limfront Task - Front Limit Switch
+*  This simple task initializes the pin used to read the front limit switch(es) and monitors if they are triggered (reads HIGH). If so, this task
+*  sends the information to mastermind to handle. This task is contained in \link limit_switch_front.cpp \endlink.
+*/

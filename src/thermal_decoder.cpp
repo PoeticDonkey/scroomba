@@ -2,6 +2,14 @@
  *      This file contains a task that decodes information from the thermal camera 
  *      to find and track a person for the Scroomba.
  * 
+ *  @details This task takes the thermal camera data and makes sense of it.
+ *           It calibrates to ambient conditions and differentials to the
+ *           calibration matrix are used to judge if a person is there.
+ *           When a person is detected, their position is fed to mastermind
+ *           for course correction.
+ *           Stops hunt and resets when signaled by mastermind.
+ *           Warning: Messing up calibration gives bad results!
+ * 
  *  @author Michael Conn
  *  @author Scott Mangin
  *  @author Nicholas Holman
@@ -11,10 +19,10 @@
 
 #include "thermal_decoder.h"
 
-extern Queue<float> thermaldata;
-extern Queue<uint8_t> direction;
-extern Queue<uint8_t> stop_hunt;
-extern Queue<uint8_t> reset_this;
+extern Queue<float> thermaldata; ///<Thermal Camera Data Queue
+extern Queue<uint8_t> direction; ///<Direction of detected person flag
+extern Queue<uint8_t> stop_hunt; ///<Flag to signal the thermal camera should stop detecting
+extern Queue<uint8_t> reset_this; ///<Flag to reset thermal camera
 
 /** @brief   Task which interperates the thermal camera data. 
  *  @details This task takes the thermal camera data and makes sense of it.

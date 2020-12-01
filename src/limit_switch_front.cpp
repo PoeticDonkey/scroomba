@@ -1,6 +1,9 @@
 /** @file limit_switch_front.cpp
  *      This file contains a task that runs the front limit switch.
  * 
+ *  @details This task initializes the digital reading pin(s) and raises a flag for
+ *           Mastermind if the front limit switch(es) were pressed.
+ * 
  *  @author Michael Conn
  *  @author Scott Mangin
  *  @author Nicholas Holman
@@ -10,11 +13,11 @@
 
 #include "limit_switch_front.h"
 
-extern Queue<uint8_t> limitdetect_front;
+extern Queue<uint8_t> limitdetect_front; ///<Front Limit Switch Flag
 
 /** @brief   Task which handles the front limit switch
- *  @details This task initializes the pins and raises a flag for
- *           Mastermind if the front limit switches were pressed.
+ *  @details This task initializes the digital reading pin(s) and raises a flag for
+ *           Mastermind if the front limit switch(es) were pressed.
  *  @param   p_params A pointer to function parameters which we don't use.
  */
 void task_limit_front (void* p_params)

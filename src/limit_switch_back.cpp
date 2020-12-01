@@ -1,5 +1,8 @@
-/** @file limit_switch_back.h
- *      This file contains a task that runs the back limit switch.
+/** @file limit_switch_back.cpp
+ *          This file contains a task that runs the back limit switch.
+ * 
+ *  @details This task initializes the digital reading pin(s) and raises a flag for
+ *           Mastermind if the back limit switch(es) were pressed.
  * 
  *  @author Michael Conn
  *  @author Scott Mangin
@@ -10,15 +13,13 @@
 
 #include "limit_switch_back.h"
 
-extern Queue<uint8_t> limitdetect_back;
+extern Queue<uint8_t> limitdetect_back; ///<Back Limit Switch Flag
 
 /** @brief   Task which handles the back limit switches
- *  @details This task initializes the pins and raises a flag for
- *           Mastermind if the back limit switches were pressed.
+ *  @details This task initializes the digital reading pin(s) and raises a flag for
+ *           Mastermind if the back limit switch(es) were pressed.
  *  @param   p_params A pointer to function parameters which we don't use.
  */
-
-
 void task_limit_back (void* p_params)
 {
     (void)p_params;             // Does nothing but shut up a compiler warning  

@@ -1,5 +1,5 @@
 /** @file main.cpp
- *    This file contains the code to run the Scoomba.
+ *    This file contains the mastermind task and necessary setup to run the Scroomba robot.
  *
  *  @author  JR Ridgely
  *  @author  Scott Mangin
@@ -25,18 +25,18 @@
 #include "thermal_cam.h"
 #include "thermal_decoder.h"
 
-Queue<float> thermaldata (640, "Thermal Data"); //Thermal Camera Data Queue
-Queue<uint8_t> motordirection (1, "Motor Task Parameters"); // What motors should do queue
-Queue<uint8_t> motorpower (1, "Motor Task Parameters"); // What motors should do queue
-Queue<uint8_t> limitdetect_back (1, "Back Limit Switch Detection Flag"); // Back Limit Switch Flag
-Queue<uint8_t> limitdetect_front (1, "Front Limit Switch Detection Flag"); // Front Limit Switch Flag
-Queue<uint8_t> stop_hunt (1, "Stop Thermal Hunt Flag"); // Flag to signal the thermal cam should stop hunting
-Queue<uint8_t> reset_this (1, "Reset Hunt Flag"); // Flag to reset thermal cam
-Queue<uint8_t> direction (1, "Person Direction Flag"); // Direction of detected person
+Queue<float> thermaldata (640, "Thermal Data"); ///<Thermal Camera Data Queue
+Queue<uint8_t> motordirection (1, "Motor Direction Parameter"); ///<Super-boolean for direction of travel Queue
+Queue<uint8_t> motorpower (1, "Motor Power Parameter"); ///<Duty cycle value for designated motor pins Queue
+Queue<uint8_t> limitdetect_back (1, "Back Limit Switch Detection Flag"); ///<Back Limit Switch Flag
+Queue<uint8_t> limitdetect_front (1, "Front Limit Switch Detection Flag"); ///<Front Limit Switch Flag
+Queue<uint8_t> stop_hunt (1, "Stop Thermal Hunt Flag"); ///<Flag to signal the thermal camera should stop detecting
+Queue<uint8_t> reset_this (1, "Reset Hunt Flag"); ///<Flag to reset thermal camera
+Queue<uint8_t> direction (1, "Person Direction Flag"); ///<Direction of detected person flag
 
-/** @brief   Task which is the mastermind of the program. 
+/** @brief   Task which controls the state of the robot.
  *  @details This task is the brain of the Scroomba that decides what should happen.
- *           Has initialize, hunt/wait, reverse, and reset states.
+ *           This task has four states: initialize, hunt/wait, reverse, and reset states.
  *  @param   p_params A pointer to function parameters which we don't use.
  */
 void task_mastermind (void* p_params)

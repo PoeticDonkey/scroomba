@@ -10,25 +10,21 @@
 
 #include "thermal_cam.h"
 
-extern Queue<float> thermaldata;
-
+extern Queue<float> thermaldata; ///<Thermal Camera Data Queue
 
 /** @brief   Task which runs the Thermal Camera. 
  *  @details This task initializes and collects data from the Thermal Camera into a [64] array.
  *           Every 8 values moves from top to bottom in the FoV.
  *           Every group of 8 values moves from left to right in the FoV. *           
  *  @param   p_params A pointer to function parameters which we don't use.
- *  @param   amg The thermal camera object.
- *  @param   pixels The array that stores the thermal camera data.
  */
-
 void task_thermal (void* p_params)
 {
     (void)p_params;            // Does nothing but shut up a compiler warning
 
-    Adafruit_AMG88xx amg;
-    float pixels[AMG88xx_PIXEL_ARRAY_SIZE];
-    bool status = 0;
+    Adafruit_AMG88xx amg; //Constructor for Adafruit thermal sensor object
+    float pixels[AMG88xx_PIXEL_ARRAY_SIZE]; //Sets local array to handle the readPixels AMG88xx library function
+    bool status = 0; //Calibration status
     
     // default settings
     status = amg.begin();
@@ -37,7 +33,9 @@ void task_thermal (void* p_params)
         Serial.println("Could not find a valid AMG88xx sensor, check wiring!");
         while (1);
     }
+
     vTaskDelay(100); // let sensor boot up
+    
     for (;;)
     {
         //read all the pixels

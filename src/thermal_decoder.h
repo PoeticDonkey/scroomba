@@ -1,6 +1,8 @@
 /** @file thermal_decoder.h
  *      This file contains a task that decodes information from the thermal camera 
- *      to find and track a person for the Scroomba.
+ *      to find and track a person for the Scroomba robot.
+ * 
+ *  @brief Task that analyzes the thermal camera temperature array for people, sends result to mastermind.
  * 
  *  @author Michael Conn
  *  @author Scott Mangin
