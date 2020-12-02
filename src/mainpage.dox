@@ -14,7 +14,7 @@
 *  and resets, taking another set of calibration data and waiting for another "target". A picture of the Scroomba
 *  robot is shown in Figure 1.
 *
-*  @image html Scroomba.JPG
+*  @image html Scroomba.jpg
 *  Figure 1. Scroomba System
 *
 *  This project utilizes an STM32L476RG processor on a Nucleo-64 prototyping
